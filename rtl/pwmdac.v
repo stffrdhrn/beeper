@@ -1,46 +1,40 @@
 module pwmdac(
-  input        pwmclk,  /* 110Mhz 44000 x 250 x 10*/
   input  [7:0] sample,
-  input        enable,
- 
-  output       pwmout
+  output       pwmout,
+  
+  input        clk,  /* 110Mhz 44000 x 250 x 10*/
+  input        rst_n
 );
 
-reg        pwmout_ff;
+parameter CLK_FREQ       = 32;
+parameter PWM_PER_CYLCLE = 4;  /*(3=41K, 4=31K, 8=15K, 16=7800)*/
+
 reg  [7:0] sample_ff;
 reg  [7:0] pwm_dutycyc_ff; /* keeps count of duty cycle (250hz) */
-reg  [3:0] pwm_outcnt_ff; /* keeps found of ouputs per sample (10) */
+reg  [3:0] pwm_outcnt_ff; /* keeps count of ouputs per sample (10) */
 
-assign pwmout = pwmout_ff;
+assign pwmout = (sample_ff > pwm_dutycyc_ff);
 
-always @ (posedge pwmclk)
-  if (enable) 
-  begin
-    if (pwm_dutycyc_ff == 8'd249) 
+always @ (posedge clk)
+  if (~rst_n) 
     begin
-      pwm_dutycyc_ff <= 8'd0;
-      if (pwm_outcnt_ff == 4'd9) 
-      begin
-        sample_ff <= sample;
-        pwm_outcnt_ff <= 4'd0;
-      end 
-      else
-        pwm_outcnt_ff <= pwm_outcnt_ff + 1'b1;
-    end 
-    else
-      pwm_dutycyc_ff <= pwm_dutycyc_ff + 1'b1;  
-  end
-  else 
-  begin
-    sample_ff <= sample;
+    sample_ff <= 8'd0;
     pwm_dutycyc_ff = 8'd0;
     pwm_outcnt_ff = 4'd0;
-  end
+    end
+  else
+    begin
+    pwm_dutycyc_ff <= pwm_dutycyc_ff + 1'b1;  
   
-always @ (*) 
- if (enable)
-  pwmout_ff <= sample_ff > pwm_dutycyc_ff;
- else 
-  pwmout_ff <= 1'd0;
+    if (!pwm_dutycyc_ff) 
+      if (pwm_outcnt_ff == 4'd3) 
+        begin
+        sample_ff <= sample;
+        pwm_outcnt_ff <= 4'd0;
+        end 
+      else
+        pwm_outcnt_ff <= pwm_outcnt_ff + 1'b1;
 
+    end
+    
 endmodule
